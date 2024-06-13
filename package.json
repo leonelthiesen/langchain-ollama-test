@@ -2,12 +2,15 @@
   "name": "langchain-ollama-test",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "type": "module",
   "author": "Lepnel Thiesen",
   "license": "ISC",
   "dependencies": {
     "@langchain/community": "^0.2.10",
+    "cheerio": "^1.0.0-rc.12",
     "langchain": "^0.2.5"
   }
 }

@@ -1,34 +1,58 @@
 // https://js.langchain.com/v0.1/docs/get_started/quickstart/
 
 import { ChatOllama } from "@langchain/community/chat_models/ollama";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
+import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
+import { createRetrievalChain } from "langchain/chains/retrieval";
+
+const embeddings = new OllamaEmbeddings({
+    model: "nomic-embed-text",
+    maxConcurrency: 5,
+});
+
+const loader = new CheerioWebBaseLoader("https://docs.smith.langchain.com/user_guide");
+const splitter = new RecursiveCharacterTextSplitter();
+
+const docs = await loader.load();
+const splitDocs = await splitter.splitDocuments(docs);
+const vectorstore = await MemoryVectorStore.fromDocuments(
+    splitDocs,
+    embeddings
+  );
 
 const chatModel = new ChatOllama({
-    baseUrl: "http://localhost:11434", // Default value
-    model: "mistral",
+    baseUrl: "http://localhost:11434",
+    model: "tinyllama",
 });
 
-await chatModel.invoke("what is LangSmith?");
+const prompt =
+  ChatPromptTemplate.fromTemplate(`Answer the following question based only on the provided context:
 
+<context>
+{context}
+</context>
 
-import { ChatPromptTemplate } from "@langchain/core/prompts";
+Question: {input}`);
 
-const prompt = ChatPromptTemplate.fromMessages([
-    ["system", "You are a world class technical documentation writer."],
-    ["user", "{input}"],
-]);
-
-const chain = prompt.pipe(chatModel);
-
-await chain.invoke({
-    input: "what is LangSmith?",
+const documentChain = await createStuffDocumentsChain({
+  llm: chatModel,
+  prompt,
 });
 
-import { StringOutputParser } from "@langchain/core/output_parsers";
+const retriever = vectorstore.asRetriever();
+
+const retrievalChain = await createRetrievalChain({
+    combineDocsChain: documentChain,
+    retriever,
+});
 
 const outputParser = new StringOutputParser();
 
-const llmChain = prompt.pipe(chatModel).pipe(outputParser);
-
-await llmChain.invoke({
+console.log(await retrievalChain.invoke({
     input: "what is LangSmith?",
-});
+}));
