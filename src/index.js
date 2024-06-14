@@ -1,19 +1,18 @@
 // https://js.langchain.com/v0.1/docs/get_started/quickstart/
 
-import { ChatOllama } from "@langchain/community/chat_models/ollama";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { createRetrievalChain } from "langchain/chains/retrieval";
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 
-const embeddings = new OllamaEmbeddings({
-    model: "nomic-embed-text",
-    maxConcurrency: 5,
-});
+import 'dotenv/config';
+
+
+const embeddings = new OpenAIEmbeddings();
 
 const loader = new CheerioWebBaseLoader("https://docs.smith.langchain.com/user_guide");
 const splitter = new RecursiveCharacterTextSplitter();
@@ -23,15 +22,14 @@ const splitDocs = await splitter.splitDocuments(docs);
 const vectorstore = await MemoryVectorStore.fromDocuments(
     splitDocs,
     embeddings
-  );
+);
 
-const chatModel = new ChatOllama({
-    baseUrl: "http://localhost:11434",
-    model: "tinyllama",
+const chatModel = new ChatOpenAI({
+    apiKey: process.env.OPENAI_API_KEY
 });
 
 const prompt =
-  ChatPromptTemplate.fromTemplate(`Answer the following question based only on the provided context:
+    ChatPromptTemplate.fromTemplate(`Answer the following question based only on the provided context:
 
 <context>
 {context}
@@ -40,8 +38,8 @@ const prompt =
 Question: {input}`);
 
 const documentChain = await createStuffDocumentsChain({
-  llm: chatModel,
-  prompt,
+    llm: chatModel,
+    prompt,
 });
 
 const retriever = vectorstore.asRetriever();
